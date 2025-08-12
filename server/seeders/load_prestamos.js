@@ -1,0 +1,42 @@
+/*se encarga de cargar los prestamos a la base de datos*/
+import fs from 'fs'; // es la que me permite leer archivos
+import path from 'path'; // esta muestra la ruta actual
+import csv from 'csv-parser';
+import { pool } from "../conexion_db.js"
+
+
+export async function cargarPrestamosAlaBaseDeDatos() {
+
+    const rutaArchivo = path.resolve('server/data/03_prestamos.csv');
+    const prestamos = [];
+
+    return new Promise((resolve, reject) => {
+        fs.createReadStream(rutaArchivo)
+            .pipe(csv())
+            .on("data", (fila) => {
+                prestamos.push([
+                    fila.id_de_la_transacción,
+                    fila.fecha_y_hora,
+                    fila.monto_de_la_transaccion,
+                    fila.estado,
+                    fila.tipo_de_transaccion
+                ]);
+            })
+            .on('end', async () => {
+                try {
+                    const sql = 'INSERT INTO transacciones (Número_de_Identificación,Dirección,Teléfono,Correo_Electrónico,Plataforma_Utilizada) VALUES ?';
+                    const [result] = await pool.query(sql, [prestamos]);
+
+                    console.log(`Se insertaron ${result.affectedRows} prestamos.`);
+                    resolve(); // Termina exitosamente
+                } catch (error) {
+                    console.error('Error al insertar prestamos:', error.message);
+                    reject(error);
+                }
+            })
+            .on('error', (err) => {
+                console.error('Error al leer el archivo CSV de prestamos:', err.message);
+                reject(err);
+            });
+    });
+}
